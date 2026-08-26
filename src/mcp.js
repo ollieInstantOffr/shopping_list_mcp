@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { planSchema, groupShoppingList } from './plan.js';
 import { planToNoteText } from './render.js';
-import { savePlan, getPlan, recentPlans, removePlan } from './db.js';
+import { savePlan, getPlan, recentPlans, removePlan, searchPlans } from './db.js';
 
 export const PUBLIC_URL = (process.env.PUBLIC_URL || 'https://foodgen.instantoffr.com').replace(/\/+$/, '');
 
@@ -147,6 +147,63 @@ export function createMcpServer() {
         content: [{ type: 'text', text: ok ? `Deleted ${planId}.` : `No dinner plan found for "${id}".` }],
         isError: !ok,
       };
+    },
+  );
+
+  // ---------------------------------------------------------------------
+  // ChatGPT connector compatibility. Outside developer mode, ChatGPT only
+  // uses MCP servers that expose `search` and `fetch`, with results encoded
+  // as a JSON string in a single text content block (OpenAI's contract).
+  // Claude simply sees two extra read-only tools.
+  // ---------------------------------------------------------------------
+
+  server.registerTool(
+    'search',
+    {
+      title: 'Search dinner plans',
+      description:
+        'Search saved dinner plans by dish name, tag or ingredient. Returns matching plans as JSON results with id, title and url. An empty query returns the most recent plans.',
+      inputSchema: { query: z.string().default('').describe('Free-text search, e.g. "kylling" or "rask uten fisk". Empty for the newest plans.') },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ query }) => {
+      const results = searchPlans(query ?? '', 10).map((r) => ({
+        id: r.id,
+        title: `${r.title} (${r.createdAt.slice(0, 10)})`,
+        url: planUrl(r.id),
+      }));
+      return { content: [{ type: 'text', text: JSON.stringify({ results }) }] };
+    },
+  );
+
+  server.registerTool(
+    'fetch',
+    {
+      title: 'Fetch a dinner plan',
+      description:
+        'Fetch the full shopping list and recipe for one dinner plan by the id returned from search. Returns a JSON document with id, title, text and url.',
+      inputSchema: { id: z.string().describe('Plan id from a search result (the full plan URL also works).') },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ id }) => {
+      const planId = normaliseId(id);
+      const found = planId && getPlan(planId);
+      if (!found) {
+        return { isError: true, content: [{ type: 'text', text: JSON.stringify({ error: `No dinner plan found for "${id}".` }) }] };
+      }
+      const doc = {
+        id: found.id,
+        title: found.plan.title,
+        text: planToNoteText(found.plan, PUBLIC_URL.replace(/^https?:\/\//, '')),
+        url: planUrl(found.id),
+        metadata: {
+          created_at: found.createdAt,
+          servings: found.plan.servings_note,
+          total_time_minutes: found.plan.total_time_minutes,
+          tags: found.plan.tags || [],
+        },
+      };
+      return { content: [{ type: 'text', text: JSON.stringify(doc) }] };
     },
   );
 

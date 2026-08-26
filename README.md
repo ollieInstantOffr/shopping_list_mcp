@@ -24,6 +24,7 @@ Claude finner retten, kaller `create_dinner_plan`, og svarer med en lenke som
 | | |
 |---|---|
 | `create_dinner_plan` | lagrer en full plan, returnerer lenken |
+| `search` / `fetch` | ChatGPT-connector-kontrakten (søk + oppslag) |
 | `get_dinner_plan` | leser en plan tilbake (id eller URL) |
 | `list_recent_dinner_plans` | siste planer, nyest først |
 | `delete_dinner_plan` | sletter en plan permanent |
@@ -60,10 +61,11 @@ Lokal utvikling uten Docker:
 PUBLIC_URL=http://localhost:2400 npm run dev
 ```
 
-## Koble til Claude
+## Koble til Claude og ChatGPT
 
 - **Claude-appen / claude.ai / Cowork**: Settings → Connectors → Add custom connector → `https://foodgen.instantoffr.com/mcp` (ingen autentisering)
 - **Claude Code**: `claude mcp add --transport http foodgen https://foodgen.instantoffr.com/mcp`
+- **ChatGPT**: Settings → Connectors → legg til egendefinert MCP-connector med samme adresse, ingen autentisering. Serveren eksponerer `search`/`fetch` etter OpenAI-kontrakten, så den fungerer som vanlig connector (søk/oppslag i lagrede middager og deep research); med **Developer mode** på kan ChatGPT også bruke `create_dinner_plan` og lage nye middager.
 
 Forsiden på `https://foodgen.instantoffr.com` viser de samme instruksjonene.
 

@@ -547,7 +547,7 @@ const LANDING_STYLE = `
 .sample figcaption{font-size:.78rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
   color:var(--secondary);margin-bottom:.5rem}
 .landing-grid{display:grid;gap:1.2rem;padding:2.4rem 0 .6rem;text-align:left}
-@media (min-width:860px){.landing-grid{grid-template-columns:1fr 1fr 1fr}}
+@media (min-width:640px){.landing-grid{grid-template-columns:1fr 1fr}}
 .landing-grid .pad{padding:1.25rem 1.3rem}
 .landing-grid h3{font-size:1.08rem;font-weight:650;letter-spacing:-.015em;margin:0 0 .5rem}
 .landing-grid ol{margin:.3rem 0 0;padding-left:1.2rem;color:var(--secondary)}
@@ -578,7 +578,7 @@ export function renderLanding(baseUrl) {
 <div class="wrap">
   <section class="hero landing rise d1">
     <h1>Middag, ferdig tenkt.</h1>
-    <p class="lede">Be Claude om middag — få en lenke med handleliste du huker av i butikken, og oppskriften under. Ett trykk lagrer alt i Apple&nbsp;Notater.</p>
+    <p class="lede">Be Claude eller ChatGPT om middag — få en lenke med handleliste du huker av i butikken, og oppskriften under. Ett trykk lagrer alt i Apple&nbsp;Notater.</p>
     <figure class="sample rise d2" style="margin:0 auto">
       <div class="card"><div class="pad" style="padding:1.25rem 1.3rem;text-align:left">
         <figcaption>Slik spør du</figcaption>
@@ -601,6 +601,15 @@ export function renderLanding(baseUrl) {
     <div class="card rise d3"><div class="pad">
       <h3>Claude Cowork</h3>
       <p>Samme framgangsmåte — Cowork bruker koblingene fra kontoen din, så én tilkobling gjelder begge steder.</p>
+    </div></div>
+    <div class="card rise d4"><div class="pad">
+      <h3>ChatGPT</h3>
+      <ol>
+        <li>Åpne <b>Settings → Connectors</b> (skru på <b>Developer mode</b> under Advanced for full funksjonalitet)</li>
+        <li>Velg <b>Create</b> / legg til egendefinert connector</li>
+        <li>Lim inn adressen over — MCP-server, ingen autentisering</li>
+      </ol>
+      <p>Som vanlig connector kan ChatGPT søke i og hente lagrede middager; i developer mode kan den også lage nye.</p>
     </div></div>
     <div class="card rise d4"><div class="pad">
       <h3>Claude Code</h3>

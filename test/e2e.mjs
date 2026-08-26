@@ -11,7 +11,8 @@ console.log('\n== connected ==');
 
 const tools = await client.listTools();
 console.log('tools:', tools.tools.map(t => t.name).join(', '));
-ok(tools.tools.length === 4, 'four tools exposed');
+ok(tools.tools.length === 6, 'six tools exposed');
+ok(['search','fetch'].every(n => tools.tools.some(t => t.name === n)), 'ChatGPT search/fetch tools present');
 ok(!!tools.tools.find(t => t.name === 'create_dinner_plan')?.inputSchema?.properties?.ingredients, 'create_dinner_plan has ingredients schema');
 
 const prompts = await client.listPrompts();
@@ -61,6 +62,15 @@ ok(!roundTrip.isError && roundTrip.content[0].text.includes('Rask kyllingwok'), 
 
 const listed = await client.callTool({ name: 'list_recent_dinner_plans', arguments: {} });
 ok(listed.content[0].text.includes(id), 'plan appears in list_recent_dinner_plans');
+
+// ChatGPT connector contract: JSON-string results in one text block
+const sr = JSON.parse((await client.callTool({ name: 'search', arguments: { query: 'kylling rask' } })).content[0].text);
+ok(Array.isArray(sr.results) && sr.results.some(r => r.id === id), 'search finds the plan by ingredient+tag');
+ok(sr.results.every(r => r.id && r.title && r.url), 'search results have id/title/url');
+const sMiss = JSON.parse((await client.callTool({ name: 'search', arguments: { query: 'pizzabunn ananas' } })).content[0].text);
+ok(sMiss.results.length === 0, 'search misses cleanly');
+const fr = JSON.parse((await client.callTool({ name: 'fetch', arguments: { id } })).content[0].text);
+ok(fr.id === id && fr.title === plan.title && fr.text.includes('HANDLELISTE') && fr.url === url, 'fetch returns the full document');
 
 const missing = await client.callTool({ name: 'get_dinner_plan', arguments: { id: 'nope' } });
 ok(missing.isError === true, 'unknown id returns an error');
