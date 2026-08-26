@@ -36,15 +36,25 @@ cp .env.example .env      # sjekk PUBLIC_URL
 docker compose up -d --build
 ```
 
-Appen lytter på `127.0.0.1:2400` (styres av `BIND_ADDR`). TLS håndteres av nginx
-foran — ferdig site-config med SSE-innstillingene MCP trenger ligger i
-[nginx/foodgen.conf](nginx/foodgen.conf):
+TLS håndteres av Nginx Proxy Manager, som allerede kjører. Oppsett der:
 
-```bash
-sudo cp nginx/foodgen.conf /etc/nginx/sites-available/foodgen.instantoffr.com
-sudo ln -s /etc/nginx/sites-available/foodgen.instantoffr.com /etc/nginx/sites-enabled/
-sudo certbot --nginx -d foodgen.instantoffr.com
-sudo nginx -t && sudo systemctl reload nginx
+- Proxy host `foodgen.instantoffr.com` → denne appen på port `2400`.
+  Kjører NPM i Docker, sett `BIND_ADDR=0.0.0.0` i `.env` (loopback er ikke
+  synlig fra NPM-containeren) og pek på host-IP-en, f.eks. `172.17.0.1:2400`.
+- Skru på **Websockets Support** på proxy-hosten.
+- MCP-svar strømmer som SSE; legg dette i hostens **Advanced**-fane så
+  bufring og 60-sekunders timeout ikke kutter strømmen:
+
+```nginx
+location /mcp {
+    proxy_pass http://$server:$port;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header Connection "";
+    proxy_buffering off;
+    proxy_cache off;
+    proxy_read_timeout 3600s;
+}
 ```
 
 Lokal utvikling uten Docker:
