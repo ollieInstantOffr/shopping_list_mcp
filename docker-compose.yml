@@ -20,8 +20,8 @@ services:
       PUBLIC_URL: ${PUBLIC_URL:-https://foodgen.instantoffr.com}
       RETENTION_DAYS: ${RETENTION_DAYS:-0}
     ports:
-      # Set BIND_ADDR=0.0.0.0 if nginx runs in another container or on another host.
-      - "${BIND_ADDR:-127.0.0.1}:2400:2400"
+      # NPM proxies to this from outside, so it binds all interfaces by default.
+      - "${BIND_ADDR:-0.0.0.0}:2400:2400"
     volumes:
       - foodgen_data:/app/data
 

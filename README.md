@@ -36,14 +36,11 @@ cp .env.example .env      # sjekk PUBLIC_URL
 docker compose up -d --build
 ```
 
-TLS håndteres av Nginx Proxy Manager, som allerede kjører. Oppsett der:
-
-- Proxy host `foodgen.instantoffr.com` → denne appen på port `2400`.
-  Kjører NPM i Docker, sett `BIND_ADDR=0.0.0.0` i `.env` (loopback er ikke
-  synlig fra NPM-containeren) og pek på host-IP-en, f.eks. `172.17.0.1:2400`.
-- Skru på **Websockets Support** på proxy-hosten.
-- MCP-svar strømmer som SSE; legg dette i hostens **Advanced**-fane så
-  bufring og 60-sekunders timeout ikke kutter strømmen:
+TLS og proxy håndteres av Nginx Proxy Manager, som allerede kjører og er
+konfigurert mot port `2400`. Én ting er verdt å sjekke på proxy-hosten:
+MCP-svar strømmer som SSE, så bufring og 60-sekunders lese-timeout kan kutte
+strømmen. Skru på **Websockets Support**, og legg eventuelt dette i
+**Advanced**-fanen:
 
 ```nginx
 location /mcp {
@@ -83,6 +80,6 @@ node test/e2e.mjs              # full MCP + HTTP-runde, 26 sjekker
 |---|---|---|
 | `PUBLIC_URL` | `https://foodgen.instantoffr.com` | Offentlig origin; lenkene bygges av denne |
 | `PORT` | `2400` | HTTP-port inne i containeren |
-| `BIND_ADDR` | `127.0.0.1` | Hvor compose publiserer porten |
+| `BIND_ADDR` | `0.0.0.0` | Hvor compose publiserer porten |
 | `DB_PATH` | `/app/data/foodgen.db` | SQLite-fil (volum) |
 | `RETENTION_DAYS` | `0` | Slett planer eldre enn N dager (0 = aldri) |
