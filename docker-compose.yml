@@ -1,0 +1,29 @@
+# FoodGen — MCP server + phone-friendly recipe pages.
+#
+#   cp .env.example .env    # set PUBLIC_URL
+#   docker compose up -d --build
+#
+# TLS is handled by your own nginx in front of this. The container listens on
+# plain HTTP on 2400 and by default only binds to loopback, so nothing reaches
+# it except the reverse proxy. See nginx/foodgen.conf for a ready site config.
+
+services:
+  app:
+    build: .
+    image: foodgen:latest
+    container_name: foodgen
+    restart: unless-stopped
+    environment:
+      PORT: 2400
+      DB_PATH: /app/data/foodgen.db
+      # Must match the public https origin nginx serves, or plan links break.
+      PUBLIC_URL: ${PUBLIC_URL:-https://foodgen.instantoffr.com}
+      RETENTION_DAYS: ${RETENTION_DAYS:-0}
+    ports:
+      # Set BIND_ADDR=0.0.0.0 if nginx runs in another container or on another host.
+      - "${BIND_ADDR:-127.0.0.1}:2400:2400"
+    volumes:
+      - foodgen_data:/app/data
+
+volumes:
+  foodgen_data:
