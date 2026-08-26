@@ -33,6 +33,15 @@ app.use('/mcp', express.json({ limit: '1mb' }));
  * concurrent clients without session bookkeeping.
  */
 app.all('/mcp', async (req, res) => {
+  // Access log: lets `docker compose logs -f app` show whether a client
+  // (Claude, ChatGPT, ...) actually reaches us and what it calls.
+  const rpc = Array.isArray(req.body)
+    ? req.body.map((m) => m?.method).filter(Boolean).join(',')
+    : req.body?.method || '';
+  console.log(
+    `[mcp] ${req.method}${rpc ? ' ' + rpc : ''} ua="${(req.headers['user-agent'] || '-').slice(0, 60)}" ip=${req.ip}`,
+  );
+
   const server = createMcpServer();
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
 
