@@ -72,12 +72,13 @@ export function planToNoteText(plan, publicUrl) {
   out.push('', t.shoppingList.toUpperCase(), '');
   for (const group of groups) {
     out.push(group.category);
-    for (const item of group.items) out.push(`• ${formatIngredient(item)}`);
+    // "[] " at line start becomes a real checkbox when saved into Apple Notes.
+    for (const item of group.items) out.push(`[] ${formatIngredient(item)}`);
     out.push('');
   }
   if (atHome.length) {
     out.push(t.atHome);
-    for (const item of atHome) out.push(`• ${formatIngredient(item)}`);
+    for (const item of atHome) out.push(`[] ${formatIngredient(item)}`);
     out.push('');
   }
 
