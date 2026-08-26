@@ -91,6 +91,25 @@ ok((await fetch(BASE + '/healthz')).ok, 'healthz ok');
 const landing = await (await fetch(BASE + '/')).text();
 ok(landing.includes(BASE + '/mcp'), 'landing page shows the MCP url');
 
+// --- manually added extra items ---
+const addRes = await fetch(url + '/extras', {
+  method: 'POST', headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ item: '1 l melk' }),
+});
+ok(addRes.ok, 'POST extra succeeds');
+const { extra } = await addRes.json();
+ok(!!extra?.id, 'extra gets an id');
+ok((await (await fetch(url)).text()).includes('1 l melk'), 'page shows the extra');
+const txtExtra = await (await fetch(url + '.txt')).text();
+ok(txtExtra.includes('Lagt til') && txtExtra.includes('[] 1 l melk'), '.txt includes the extra as a checkbox');
+const mcpExtra = await client.callTool({ name: 'get_dinner_plan', arguments: { id } });
+ok(mcpExtra.content[0].text.includes('1 l melk'), 'MCP get_dinner_plan includes the extra');
+ok((await fetch(url + '/extras', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"item":"  "}' })).status === 400, 'blank extra rejected');
+ok((await fetch(BASE + '/n/aaaaaaaaaaaaaaaaaaaaaa/extras', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"item":"x"}' })).status === 404, 'extra on unknown plan 404s');
+const delExtra = await fetch(url + '/extras/' + extra.id, { method: 'DELETE' });
+ok(delExtra.ok, 'DELETE extra succeeds');
+ok(!(await (await fetch(url + '.txt')).text()).includes('1 l melk'), 'deleted extra gone from .txt');
+
 const del = await client.callTool({ name: 'delete_dinner_plan', arguments: { id } });
 ok(!del.isError, 'delete works');
 ok((await fetch(url)).status === 404, 'deleted plan 404s');

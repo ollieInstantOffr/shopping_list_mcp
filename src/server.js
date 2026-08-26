@@ -1,7 +1,8 @@
 import express from 'express';
+import { randomBytes } from 'node:crypto';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createMcpServer, PUBLIC_URL } from './mcp.js';
-import { getPlan, pruneOlderThanDays } from './db.js';
+import { getPlan, updatePlan, pruneOlderThanDays } from './db.js';
 import { planToNoteText } from './render.js';
 import { renderPlanPage, renderNotFound, renderLanding } from './page.js';
 
@@ -55,6 +56,42 @@ app.all('/mcp', async (req, res) => {
   }
 });
 
+app.use('/n', express.json({ limit: '64kb' }));
+
+/**
+ * Manually added shopping-list items. Stored on the plan itself, so everyone
+ * with the link sees the same list — holding the (unguessable) link is the
+ * only authorisation, same as for reading.
+ */
+app.post('/n/:id/extras', (req, res) => {
+  const found = getPlan(req.params.id);
+  if (!found) return res.status(404).json({ error: 'not found' });
+
+  const item = String(req.body?.item ?? '').trim().replace(/\s+/g, ' ').slice(0, 120);
+  if (!item) return res.status(400).json({ error: 'item required' });
+
+  const plan = found.plan;
+  plan.extras = plan.extras || [];
+  if (plan.extras.length >= 100) return res.status(400).json({ error: 'too many extras' });
+
+  const extra = { id: randomBytes(6).toString('base64url'), item };
+  plan.extras.push(extra);
+  updatePlan(found.id, plan);
+  res.json({ ok: true, extra });
+});
+
+app.delete('/n/:id/extras/:extraId', (req, res) => {
+  const found = getPlan(req.params.id);
+  if (!found) return res.status(404).json({ error: 'not found' });
+
+  const plan = found.plan;
+  const before = plan.extras?.length ?? 0;
+  plan.extras = (plan.extras || []).filter((e) => e.id !== req.params.extraId);
+  if (plan.extras.length === before) return res.status(404).json({ error: 'extra not found' });
+  updatePlan(found.id, plan);
+  res.json({ ok: true });
+});
+
 /** A plan, as a page (default), plain text (.txt) or raw data (.json). */
 app.get('/n/:file', (req, res) => {
   const raw = req.params.file;
@@ -71,7 +108,7 @@ app.get('/n/:file', (req, res) => {
   const { plan } = found;
   const noteText = planToNoteText(plan, PUBLIC_URL.replace(/^https?:\/\//, ''));
 
-  res.setHeader('Cache-Control', 'private, max-age=60');
+  res.setHeader('Cache-Control', 'no-store');
   if (ext === '.txt') {
     return res.type('text/plain; charset=utf-8').send(noteText);
   }

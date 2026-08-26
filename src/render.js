@@ -23,6 +23,9 @@ const STRINGS = {
     notFoundBody: 'Lenken er feil, eller planen er slettet. Be Claude lage en ny.',
     checkedOff: 'i handlekurven',
     reset: 'Nullstill',
+    added: 'Lagt til',
+    addPlaceholder: 'Legg til vare …',
+    addFailed: 'Fikk ikke lagret — prøv igjen.',
   },
   en: {
     shoppingList: 'Shopping list',
@@ -46,6 +49,9 @@ const STRINGS = {
     notFoundBody: 'The link is wrong, or the plan was deleted. Ask Claude for a new one.',
     checkedOff: 'in the basket',
     reset: 'Reset',
+    added: 'Added',
+    addPlaceholder: 'Add an item …',
+    addFailed: 'Could not save — try again.',
   },
 };
 
@@ -74,6 +80,11 @@ export function planToNoteText(plan, publicUrl) {
     out.push(group.category);
     // "[] " at line start becomes a real checkbox when saved into Apple Notes.
     for (const item of group.items) out.push(`[] ${formatIngredient(item)}`);
+    out.push('');
+  }
+  if (plan.extras?.length) {
+    out.push(t.added);
+    for (const extra of plan.extras) out.push(`[] ${extra.item}`);
     out.push('');
   }
   if (atHome.length) {

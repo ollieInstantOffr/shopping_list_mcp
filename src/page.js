@@ -139,6 +139,21 @@ ul.rows{margin:0;padding:0 1.4rem .4rem;list-style:none;position:relative;z-inde
 .item{flex-shrink:1}
 .dots{flex:1;min-width:1.2rem;border-bottom:2px dotted var(--line);transform:translateY(-4px)}
 .qty{color:var(--muted);font-size:.92rem;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rm{flex:0 0 auto;align-self:center;width:22px;height:22px;border:0;border-radius:50%;
+  background:none;color:var(--muted);font-size:1.05rem;line-height:1;cursor:pointer;
+  display:grid;place-items:center;padding:0}
+.rm:hover{color:var(--accent);background:var(--accent-soft)}
+.addrow{display:flex;gap:.6rem;align-items:center;margin:.5rem 1.4rem 1.1rem;
+  padding-top:.9rem;border-top:1px solid var(--line-soft);position:relative;z-index:1}
+.addrow input{flex:1;min-width:0;font-family:var(--sans);font-size:.95rem;color:var(--ink);
+  background:transparent;border:0;border-bottom:2px dotted var(--line);padding:.35rem 0;
+  outline:none}
+.addrow input:focus{border-bottom-color:var(--accent)}
+.addrow input::placeholder{color:var(--muted);opacity:.8}
+.addrow button{flex:0 0 auto;width:30px;height:30px;border-radius:50%;border:1.5px solid var(--accent);
+  background:transparent;color:var(--accent);font-size:1.25rem;line-height:1;cursor:pointer;
+  display:grid;place-items:center;padding:0;transition:background .15s,color .15s}
+.addrow button:hover{background:var(--accent);color:var(--accent-ink)}
 .progress{display:flex;justify-content:flex-end;align-items:baseline;
   font-size:.82rem;color:var(--muted);margin:.75rem .2rem 0;font-variant-numeric:tabular-nums}
 .progress button{font:inherit;font-weight:650;color:var(--accent);background:none;border:0;
@@ -265,6 +280,15 @@ export function renderPlanPage({ id, plan, noteText, baseUrl }) {
     )
     .join('');
 
+  const extras = plan.extras || [];
+  const extrasHtml = extras
+    .map(
+      (e) => `<li class="row" role="checkbox" aria-checked="false" tabindex="0" data-key="${esc(`extra::${e.id}`)}" data-extra="${esc(e.id)}">
+  <span class="box">${CHECK_SVG}</span><span class="item">${esc(e.item)}</span><span class="dots" aria-hidden="true"></span><button type="button" class="rm" aria-label="&#10005;">&#10005;</button>
+</li>`,
+    )
+    .join('');
+
   const pantryHtml = atHome.length
     ? `<h2>${esc(t.atHome)}</h2><div class="card"><div class="pad pantry"><ul>${atHome
         .map((i) => `<li>${esc(formatIngredient(i))}</li>`)
@@ -289,7 +313,15 @@ export function renderPlanPage({ id, plan, noteText, baseUrl }) {
   <div class="spread">
     <aside class="col-list rise d2">
       <h2>${esc(t.shoppingList)}<small id="count"></small></h2>
-      <div class="card" id="list">${listHtml}</div>
+      <div class="card" id="list">${listHtml}
+        <div class="aisle" id="extras-head"${extras.length ? '' : ' hidden'}>${esc(t.added)}</div>
+        <ul class="rows" id="extras">${extrasHtml}</ul>
+        <template id="boxtpl"><span class="box">${CHECK_SVG}</span></template>
+        <form class="addrow" id="addform">
+          <input id="additem" placeholder="${esc(t.addPlaceholder)}" maxlength="120" autocomplete="off" enterkeyhint="done">
+          <button type="submit" aria-label="+">+</button>
+        </form>
+      </div>
       <p class="progress"><button type="button" id="reset">${esc(t.reset)}</button></p>
       ${pantryHtml}
       <div class="bar">
@@ -334,27 +366,31 @@ export function renderPlanPage({ id, plan, noteText, baseUrl }) {
     copy: t.copy,
     checkedOff: t.checkedOff,
     noShareHint: t.noShareHint,
+    addFailed: t.addFailed,
   })};
-  var total = ${buyCount};
+  var api = ${jsonForScript(`${baseUrl}/n/${id}`)};
   var storeKey = 'foodgen:' + ${jsonForScript(id)};
 
-  // --- checkable shopping list, remembered on this device only ---
+  // --- checkable shopping list; ticks are remembered on this device only ---
   var checked = {};
   try { checked = JSON.parse(localStorage.getItem(storeKey) || '{}'); } catch (e) {}
-  var rows = [].slice.call(document.querySelectorAll('.row'));
   var countEl = document.getElementById('count');
 
+  function allRows() {
+    return [].slice.call(document.querySelectorAll('.row'));
+  }
   function persist() {
     try { localStorage.setItem(storeKey, JSON.stringify(checked)); } catch (e) {}
   }
   function paint() {
     var n = 0;
+    var rows = allRows();
     rows.forEach(function (row) {
       var on = !!checked[row.dataset.key];
       row.setAttribute('aria-checked', on ? 'true' : 'false');
       if (on) n++;
     });
-    countEl.textContent = n + ' / ' + total;
+    countEl.textContent = n + ' / ' + rows.length;
   }
   function toggle(row) {
     var k = row.dataset.key;
@@ -362,16 +398,91 @@ export function renderPlanPage({ id, plan, noteText, baseUrl }) {
     persist();
     paint();
   }
-  rows.forEach(function (row) {
+  function bindRow(row) {
     row.addEventListener('click', function () { toggle(row); });
     row.addEventListener('keydown', function (e) {
       if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(row); }
     });
-  });
+  }
+  allRows().forEach(bindRow);
   document.getElementById('reset').addEventListener('click', function () {
     checked = {}; persist(); paint();
   });
   paint();
+
+  // --- extra items, shared with everyone who has the link ---
+  var extrasUl = document.getElementById('extras');
+  var extrasHead = document.getElementById('extras-head');
+  var addForm = document.getElementById('addform');
+  var addInput = document.getElementById('additem');
+
+  // The note text is server-rendered; re-fetch it after every change so
+  // share/copy always includes the current extras.
+  function refreshNote() {
+    fetch(api + '.txt').then(function (r) { return r.text(); }).then(function (txt) { note = txt; }).catch(function () {});
+  }
+  function removeExtra(row) {
+    fetch(api + '/extras/' + row.dataset.extra, { method: 'DELETE' })
+      .catch(function () {})
+      .then(function () {
+        delete checked[row.dataset.key];
+        persist();
+        row.remove();
+        extrasHead.hidden = !extrasUl.children.length;
+        paint();
+        refreshNote();
+      });
+  }
+  function buildExtraRow(extra) {
+    var li = document.createElement('li');
+    li.className = 'row';
+    li.setAttribute('role', 'checkbox');
+    li.setAttribute('aria-checked', 'false');
+    li.tabIndex = 0;
+    li.dataset.key = 'extra::' + extra.id;
+    li.dataset.extra = extra.id;
+    var box = document.getElementById('boxtpl').content.firstElementChild.cloneNode(true);
+    var item = document.createElement('span');
+    item.className = 'item';
+    item.textContent = extra.item;
+    var dots = document.createElement('span');
+    dots.className = 'dots';
+    dots.setAttribute('aria-hidden', 'true');
+    var rm = document.createElement('button');
+    rm.type = 'button';
+    rm.className = 'rm';
+    rm.textContent = '\u2715';
+    li.appendChild(box); li.appendChild(item); li.appendChild(dots); li.appendChild(rm);
+    bindRow(li);
+    return li;
+  }
+  extrasUl.addEventListener('click', function (e) {
+    var rm = e.target.closest('.rm');
+    if (!rm) return;
+    e.stopPropagation();
+    removeExtra(rm.closest('.row'));
+  }, true);
+  addForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var item = addInput.value.trim();
+    if (!item) return;
+    addInput.disabled = true;
+    fetch(api + '/extras', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ item: item }),
+    })
+      .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+      .then(function (res) {
+        extrasUl.appendChild(buildExtraRow(res.extra));
+        extrasHead.hidden = false;
+        addInput.value = '';
+        paint();
+        refreshNote();
+      })
+      .catch(function () { alert(S.addFailed); })
+      .then(function () { addInput.disabled = false; addInput.focus(); });
+  });
 
   // --- getting the text into Apple Notes ---
   var hint = document.getElementById('hint');

@@ -27,6 +27,7 @@ function newId() {
 const insert = db.prepare('INSERT INTO plans (id, created_at, title, data) VALUES (?, ?, ?, ?)');
 const selectOne = db.prepare('SELECT id, created_at, title, data FROM plans WHERE id = ?');
 const selectRecent = db.prepare('SELECT id, created_at, title FROM plans ORDER BY created_at DESC LIMIT ?');
+const updateOne = db.prepare('UPDATE plans SET data = ? WHERE id = ?');
 const deleteOne = db.prepare('DELETE FROM plans WHERE id = ?');
 const deleteOld = db.prepare('DELETE FROM plans WHERE created_at < ?');
 
@@ -49,6 +50,10 @@ export function recentPlans(limit = 10) {
     createdAt: r.created_at,
     title: r.title,
   }));
+}
+
+export function updatePlan(id, plan) {
+  return updateOne.run(JSON.stringify(plan), id).changes > 0;
 }
 
 export function removePlan(id) {
